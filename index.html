@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bündenbock Maintenance Ngoro</title>
+  <!-- Bootstrap CSS & FontAwesome Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS Library untuk Export Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    html, body { height: 100vh; margin: 0; background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+    .sidebar { height: 100vh; background: #0f172a; color: white; }
+    .sidebar .nav-link { color: #94a3b8; margin-bottom: 2px; border-radius: 6px; cursor: pointer; padding: 5px 8px; font-size: 0.82rem; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #1e293b; color: white; }
+    .card { border: none; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .badge-open { background-color: #ef4444; }
+    .badge-progress { background-color: #f59e0b; }
+    .badge-closed { background-color: #10b981; }
+    .avatar-img { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 2px solid #cbd5e1; }
+    
+    /* Avatar Teknisi Mode (Kotak & 3x Lebih Besar) */
+    .avatar-lg-square { width: 165px; height: 165px; object-fit: cover; border-radius: 8px; border: 3px solid #0d6efd; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    
+    .img-preview-modal { max-width: 100%; max-height: 380px; object-fit: contain; border-radius: 8px; }
+    .mode-switch-card { background: linear-gradient(135deg, #1e293b, #334155); color: white; }
+    .app-logo-img { width: 38px; height: 38px; object-fit: cover; border-radius: 6px; border: 1px solid #f59e0b; }
+    
+    /* Section Badge Custom Colors */
+    .badge-sec-mekanik { background-color: #6c757d; color: white; }
+    .badge-sec-elektrik { background-color: #0d6efd; color: white; }
+    .badge-sec-utility { background-color: #198754; color: white; }
+    .badge-sec-planner { background-color: #212529; color: white; }
+    .badge-sec-helper { background-color: #fd7e14; color: white; }
+
+    /* Scrollable Chart Wrapper untuk grafik jika batang banyak */
+    .chart-scroll-wrapper { width: 100%; overflow-x: auto; overflow-y: hidden; }
+    .chart-scroll-inner { min-width: 100%; height: 185px; }
+
+    /* Compact Dashboard Fit 1 Screen */
+    .dashboard-container { max-height: 98vh; overflow-y: auto; padding-bottom: 10px; }
+    .card-compact { padding: 6px 10px !important; }
+    .chart-box-compact { height: 185px; position: relative; }
+    .chart-title { font-size: 0.78rem; font-weight: 700; margin-bottom: 2px; color: #1e293b; }
+
+    /* Scrollable Table Area untuk List Job */
+    .table-scroll-container { max-height: 60vh; overflow-y: auto; }
+    .chart-active-filter-badge { font-size: 0.72rem; }
+  </style>
+</head>
+<body>
+
+<div class="container-fluid h-100">
+  <div class="row h-100">
+    <!-- Sidebar Navigasi -->
+    <div class="col-md-2 sidebar p-2 d-flex flex-column">
+      <div class="d-flex align-items-center mb-2 mt-1 px-1">
+        <!-- Logo Bündenbock Asli -->
+        <img src="logo.jpg" id="mainAppLogo" class="app-logo-img me-2" alt="Bündenbock Logo" onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/1033/1033090.png';">
+        <div>
+          <h6 class="fw-bold text-warning mb-0" style="line-height: 1.1; font-size: 0.85rem;">Bündenbock</h6>
+          <small class="text-light opacity-75" style="font-size: 0.68rem;">Maintenance Ngoro</small>
+        </div>
+      </div>
+      <hr class="border-secondary my-1">
+      
+      <!-- Switcher Mode -->
+      <div class="card mode-switch-card p-2 mb-2 text-center">
+        <small class="text-light opacity-75 d-block mb-1" style="font-size: 0.7rem;">Mode Akses Sekarang:</small>
+        <span id="currentModeLabel" class="badge bg-warning text-dark fs-6 fw-bold">Supervisor</span>
+        <button class="btn btn-sm btn-outline-light mt-1 py-0" style="font-size: 0.7rem;" onclick="requestModeChange()">
+          <i class="fa-solid fa-key me-1"></i> Ganti Mode
+        </button>
+      </div>
+
+      <ul class="nav nav-pills flex-column mb-auto" id="sidebarMenu">
+        <!-- Menu diisi via JS sesuai Mode -->
+      </ul>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="col-md-10 p-2 overflow-auto h-100">
+
+      <!-- ==================== TAB 1: DASHBOARD GRAFIK & REKAP ==================== -->
+      <div id="tab-dashboard" class="dashboard-container">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h5 class="fw-bold m-0 text-dark" id="dashboardTitle"><i class="fa-solid fa-chart-line text-primary me-2"></i>Dashboard Analytics</h5>
+          <small class="text-muted" style="font-size: 0.78rem;"><i class="fa-solid fa-location-dot me-1"></i>Plant Ngoro</small>
+        </div>
+
+        <!-- Filter Periode Tanggal & Indikator Klik Grafik -->
+        <div class="card p-2 mb-2 bg-light border">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-auto">
+              <span class="fw-bold text-secondary" style="font-size:0.8rem;"><i class="fa-solid fa-calendar-days me-1"></i> Periode Tanggal:</span>
+            </div>
+            <div class="col-md-2">
+              <input type="date" id="dashStartDate" class="form-control form-control-sm" onchange="renderDashboardAnalytics()">
+            </div>
+            <div class="col-md-auto"><small class="text-muted">s/d</small></div>
+            <div class="col-md-2">
+              <input type="date" id="dashEndDate" class="form-control form-control-sm" onchange="renderDashboardAnalytics()">
+            </div>
+            
+            <!-- Badge Indikator Klik Grafik -->
+            <div class="col-md-auto ms-auto d-flex align-items-center gap-2">
+              <span id="activeChartFilterLabel" class="badge bg-primary chart-active-filter-badge d-none">
+                Filter Grafik: <span id="activeChartFilterText">Semua</span>
+              </span>
+              <button id="btnResetChartFilter" class="btn btn-sm btn-outline-danger py-0 px-2 d-none" style="font-size:0.75rem;" onclick="resetChartClickFilter()">
+                <i class="fa-solid fa-xmark me-1"></i>Reset Filter Klik
+              </button>
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;" onclick="resetDashDateFilter()">
+                <i class="fa-solid fa-rotate me-1"></i>Reset Tanggal
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Summary Cards Compact -->
+        <div class="row g-2 mb-1">
+          <div class="col-md-3">
+            <div class="card card-compact bg-primary text-white">
+              <small class="text-white-50" style="font-size:0.68rem;">Total Job Order</small>
+              <h5 class="fw-bold m-0" id="cardTotalJob">0</h5>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card card-compact bg-danger text-white">
+              <small class="text-white-50" style="font-size:0.68rem;">Job Open / Pending</small>
+              <h5 class="fw-bold m-0" id="cardOpenJob">0</h5>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card card-compact bg-warning text-dark">
+              <small class="text-dark-50" style="font-size:0.68rem;">Job In Progress</small>
+              <h5 class="fw-bold m-0" id="cardProgressJob">0</h5>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card card-compact bg-success text-white">
+              <small class="text-white-50" style="font-size:0.68rem;">Job Closed (% Closing)</small>
+              <h5 class="fw-bold m-0" id="cardClosedJob">0 (0%)</h5>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 1: Personil & Status Pie -->
+        <div class="row g-2 mb-1">
+          <div class="col-md-6">
+            <div class="card card-compact">
+              <div class="chart-title"><i class="fa-solid fa-users text-primary me-1"></i>Jumlah Personil per Section</div>
+              <div class="chart-box-compact"><canvas id="chartPersonil"></canvas></div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card card-compact">
+              <div class="chart-title"><i class="fa-solid fa-chart-pie text-success me-1"></i>Persentase Closing Status Job</div>
+              <div class="chart-box-compact"><canvas id="chartStatusPie"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Job Open Tiap Personil, per Line, per Mesin -->
+        <div class="row g-2">
+          <div class="col-md-4">
+            <div class="card card-compact">
+              <div class="chart-title"><i class="fa-solid fa-user-clock text-danger me-1"></i>Job Open tiap personil <small class="text-muted fw-normal">(Klik batang)</small></div>
+              <div class="chart-scroll-wrapper">
+                <div class="chart-scroll-inner" id="innerPersonilOpen">
+                  <canvas id="chartPersonilOpen"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card card-compact">
+              <div class="chart-title"><i class="fa-solid fa-industry text-warning me-1"></i>Job Open per line <small class="text-muted fw-normal">(Klik batang)</small></div>
+              <div class="chart-scroll-wrapper">
+                <div class="chart-scroll-inner" id="innerLineOpen">
+                  <canvas id="chartLineOpen"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card card-compact">
+              <div class="chart-title"><i class="fa-solid fa-gears text-danger me-1"></i>Job Open per mesin <small class="text-muted fw-normal">(Klik batang)</small></div>
+              <div class="chart-scroll-wrapper">
+                <div class="chart-scroll-inner" id="innerMesinOpen">
+                  <canvas id="chartMesinOpen"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== TAB 2: LIST JOB MAINTENANCE ==================== -->
+      <div id="tab-list-jobs" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="fw-bold m-0"><i class="fa-solid fa-list-check text-primary me-2"></i>List Job Maintenance</h5>
+          <div>
+            <!-- Tombol Export Excel -->
+            <button class="btn btn-success btn-sm me-1" onclick="exportToExcel()">
+              <i class="fa-solid fa-file-excel me-1"></i> Export Excel
+            </button>
+            <button id="btnCreateIssue" class="btn btn-primary btn-sm" onclick="switchTab('create-issue')">
+              <i class="fa-solid fa-plus-circle me-1"></i> Buat Issue / Job Baru
+            </button>
+          </div>
+        </div>
+
+        <!-- Mode Teknisi Identity & Personal Stats -->
+        <div id="teknisiIdentityBar" class="card p-3 mb-2 bg-light border-primary d-none">
+          <div class="row align-items-center">
+            <div class="col-md-3 text-center" id="teknisiActiveAvatarContainer"></div>
+            <div class="col-md-9">
+              <div class="mb-3">
+                <label class="form-label fw-bold text-primary m-0" style="font-size:0.9rem;"><i class="fa-solid fa-id-badge me-1"></i> Pilih Nama Anda (Teknisi):</label>
+                <select id="selectNamaTeknisiAktif" class="form-select fw-bold mt-1" onchange="renderDashboard()">
+                  <option value="">-- Pilih Nama Teknisi --</option>
+                </select>
+              </div>
+
+              <!-- Filter Tanggal Khusus Mode Teknisi -->
+              <div class="row g-2 mb-3 align-items-center">
+                <div class="col-md-auto">
+                  <small class="fw-bold text-secondary"><i class="fa-solid fa-calendar me-1"></i> Rentang Tanggal Pekerjaan Saya:</small>
+                </div>
+                <div class="col-md-4">
+                  <input type="date" id="filterTeknisiStartDate" class="form-control form-control-sm" onchange="renderDashboard()">
+                </div>
+                <div class="col-md-auto"><small>s/d</small></div>
+                <div class="col-md-4">
+                  <input type="date" id="filterTeknisiEndDate" class="form-control form-control-sm" onchange="renderDashboard()">
+                </div>
+              </div>
+
+              <div class="row text-center g-2" id="teknisiPersonalStats">
+                <div class="col-4"><div class="p-2 bg-danger text-white rounded"><small style="font-size:0.75rem;">Job Open</small><h5 class="m-0 fw-bold" id="tekStatOpen">0</h5></div></div>
+                <div class="col-4"><div class="p-2 bg-success text-white rounded"><small style="font-size:0.75rem;">Job Closed</small><h5 class="m-0 fw-bold" id="tekStatClosed">0</h5></div></div>
+                <div class="col-4"><div class="p-2 bg-info text-white rounded"><small style="font-size:0.75rem;">% Closing</small><h5 class="m-0 fw-bold" id="tekStatRate">0%</h5></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Filter Bar (Supervisor) -->
+        <div class="card p-2 mb-2" id="filterBarSupervisor">
+          <div class="row g-2">
+            <div class="col-md-2">
+              <label class="form-label font-weight-bold mb-1" style="font-size:0.75rem;">Dari Tanggal</label>
+              <input type="date" id="filterStartDate" class="form-control form-control-sm" onchange="renderDashboard()">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label font-weight-bold mb-1" style="font-size:0.75rem;">Sampai Tanggal</label>
+              <input type="date" id="filterEndDate" class="form-control form-control-sm" onchange="renderDashboard()">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label font-weight-bold mb-1" style="font-size:0.75rem;">Filter Teknisi</label>
+              <select id="filterTeknisi" class="form-select form-select-sm" onchange="renderDashboard()">
+                <option value="">-- Semua Teknisi --</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label font-weight-bold mb-1" style="font-size:0.75rem;">Filter Line Produksi</label>
+              <select id="filterLine" class="form-select form-select-sm" onchange="renderDashboard()">
+                <option value="">-- Semua Line --</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label font-weight-bold mb-1" style="font-size:0.75rem;">Filter Mesin</label>
+              <select id="filterMesin" class="form-select form-select-sm" onchange="renderDashboard()">
+                <option value="">-- Semua Mesin --</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label font-weight-bold mb-1" style="font-size:0.75rem;">Status Job</label>
+              <select id="filterStatus" class="form-select form-select-sm" onchange="renderDashboard()">
+                <option value="">-- Semua Status --</option>
+                <option value="Open">Open (Pending)</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Closed">Closed (Selesai)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabel Rekapan Job -->
+        <div class="card p-2">
+          <h6 class="fw-bold mb-2" style="font-size:0.85rem;">Daftar Job Maintenance</h6>
+          <div class="table-responsive table-scroll-container">
+            <table class="table table-hover align-middle mb-0" style="font-size:0.82rem;">
+              <thead class="table-dark sticky-top">
+                <tr>
+                  <th>No Job</th>
+                  <th>Tanggal Issue</th>
+                  <th>Teknisi PJ</th>
+                  <th>Line / Mesin</th>
+                  <th>Keluhan / Issue (Supervisor)</th>
+                  <th>Tindakan & Part (Teknisi)</th>
+                  <th>Foto Bukti</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="jobTableBody">
+                <!-- Data diisi via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== TAB 3: BUAT ISSUE BARU (SUPERVISOR ONLY) ==================== -->
+      <div id="tab-create-issue" class="d-none">
+        <h5 class="fw-bold mb-2"><i class="fa-solid fa-file-circle-plus text-primary me-2"></i>Buat Issue / Job Order Baru (Supervisor)</h5>
+        <div class="card p-3 col-md-8 mx-auto">
+          <form id="formCreateIssue" onsubmit="saveNewIssue(event)">
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label fw-bold mb-1" style="font-size:0.8rem;">Line Produksi <span class="text-danger">*</span></label>
+                <select id="issueLine" class="form-select form-select-sm" onchange="updateMesinDropdownIssue()" required></select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold mb-1" style="font-size:0.8rem;">Nama Mesin <span class="text-danger">*</span></label>
+                <select id="issueMesin" class="form-select form-select-sm" required></select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold mb-1" style="font-size:0.8rem;">Tugaskan ke Teknisi <span class="text-danger">*</span></label>
+                <select id="issueTeknisi" class="form-select form-select-sm" required></select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold mb-1" style="font-size:0.8rem;">Waktu Temuan Issue <span class="text-danger">*</span></label>
+                <input type="datetime-local" id="issueMulai" class="form-control form-control-sm" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-bold mb-1" style="font-size:0.8rem;">Detail Keluhan / Issue Kerusakan <span class="text-danger">*</span></label>
+                <textarea id="issueDeskripsi" class="form-control form-control-sm" rows="3" placeholder="Jelaskan kendala mesin secara lengkap" required></textarea>
+              </div>
+              <div class="col-12 mt-2 text-end">
+                <button type="button" class="btn btn-sm btn-secondary me-1" onclick="switchTab('list-jobs')">Batal</button>
+                <button type="submit" class="btn btn-sm btn-primary px-3"><i class="fa-solid fa-paper-plane me-1"></i> Kirim Job ke Teknisi</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ==================== TAB 4: MASTER TEKNISI (SUPERVISOR ONLY) ==================== -->
+      <div id="tab-master-teknisi" class="d-none">
+        <h5 class="fw-bold mb-2">Master Data - Profil Teknisi</h5>
+        <div class="row">
+          <div class="col-md-4 mb-2">
+            <div class="card p-2">
+              <h6 class="fw-bold mb-2" id="formTeknisiTitle" style="font-size:0.85rem;">Tambah Profil Teknisi</h6>
+              <form id="formTeknisi" onsubmit="saveTeknisi(event)">
+                <input type="hidden" id="editTeknisiId" value="">
+                <div class="mb-2">
+                  <label class="form-label fw-bold mb-1" style="font-size:0.75rem;">Nama Teknisi <span class="text-danger">*</span></label>
+                  <input type="text" id="namaTeknisi" class="form-control form-control-sm" placeholder="Contoh: Budi Utama" required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-bold mb-1" style="font-size:0.75rem;">Section <span class="text-danger">*</span></label>
+                  <select id="sectionTeknisi" class="form-select form-select-sm" required>
+                    <option value="">-- Pilih Section --</option>
+                    <option value="Mekanik">Mekanik</option>
+                    <option value="Elektrik">Elektrik</option>
+                    <option value="Utility">Utility</option>
+                    <option value="Planner">Planner</option>
+                    <option value="Helper">Helper</option>
+                  </select>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-bold mb-1" style="font-size:0.75rem;">Spesialisasi Sub-Skill <span class="text-danger">*</span></label>
+                  <input type="text" id="spesialisasiTeknisi" class="form-control form-control-sm" placeholder="Contoh: Inverter & PLC / Hydraulics" required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-bold mb-1" style="font-size:0.75rem;">Motto / Slogan Pekerjaan <span class="text-danger">*</span></label>
+                  <input type="text" id="mottoTeknisi" class="form-control form-control-sm" placeholder="Contoh: Zero Downtime, Safety First" required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-bold mb-1" style="font-size:0.75rem;">Foto Profil Teknisi</label>
+                  <input type="file" id="fotoTeknisi" class="form-control form-control-sm" accept="image/*">
+                  <div id="editFotoTeknisiPreview" class="mt-1"></div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="button" id="btnCancelEditTeknisi" class="btn btn-sm btn-secondary w-50 d-none" onclick="cancelEditTeknisi()">Batal</button>
+                  <button type="submit" id="btnSaveTeknisi" class="btn btn-sm btn-success w-100"><i class="fa-solid fa-plus me-1"></i> Tambah Teknisi</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card p-2">
+              <h6 class="fw-bold mb-2" style="font-size:0.85rem;">Daftar Teknisi Aktif</h6>
+              <ul class="list-group" id="listTeknisi"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== TAB 5: MASTER MESIN & LINE (SUPERVISOR ONLY) ==================== -->
+      <div id="tab-master-mesin" class="d-none">
+        <h5 class="fw-bold mb-2">Master Data - Profil Mesin & Line Produksi</h5>
+        <div class="row">
+          <div class="col-md-4 mb-2">
+            <div class="card p-2">
+              <h6 class="fw-bold mb-2" style="font-size:0.85rem;">Tambah Mesin Baru</h6>
+              <form id="formMesin" onsubmit="addMesin(event)">
+                <div class="mb-2">
+                  <label class="form-label fw-bold mb-1" style="font-size:0.75rem;">Line Produksi <span class="text-danger">*</span></label>
+                  <input type="text" id="lineNama" class="form-control form-control-sm" placeholder="Contoh: Line 1 - Packaging" required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-bold mb-1" style="font-size:0.75rem;">Nama Mesin <span class="text-danger">*</span></label>
+                  <input type="text" id="mesinNama" class="form-control form-control-sm" placeholder="Contoh: Conveyor Belt A" required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-bold mb-1" style="font-size:0.75rem;">Tipe / Spesifikasi Mesin <span class="text-danger">*</span></label>
+                  <input type="text" id="mesinTipe" class="form-control form-control-sm" placeholder="Contoh: Servo Motor 200W" required>
+                </div>
+                <button type="submit" class="btn btn-sm btn-success w-100"><i class="fa-solid fa-plus me-1"></i> Simpan Data Mesin</button>
+              </form>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card p-2">
+              <h6 class="fw-bold mb-2" style="font-size:0.85rem;">Daftar Profil Mesin & Line</h6>
+              <div class="table-responsive">
+                <table class="table table-bordered align-middle mb-0" style="font-size:0.82rem;">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Line Produksi</th>
+                      <th>Nama Mesin</th>
+                      <th>Tipe / Spec</th>
+                      <th class="text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="listMesinTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL MASUKKAN PIN SUPERVISOR ==================== -->
+<div class="modal fade" id="modalPinSupervisor" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content text-center">
+      <div class="modal-header bg-dark text-white py-2">
+        <h6 class="modal-title fw-bold"><i class="fa-solid fa-lock text-warning me-2"></i>Akses Supervisor</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3">
+        <p class="small text-muted mb-2">Masukkan PIN Supervisor untuk membuka hak akses penuh:</p>
+        <input type="password" id="inputSupervisorPin" class="form-control text-center fw-bold fs-4 mb-2" maxlength="4" placeholder="••••" autofocus>
+        <div id="pinErrorMessage" class="text-danger small d-none mb-2 fw-bold">PIN Salah, silakan coba lagi!</div>
+        <button class="btn btn-primary w-100 btn-sm" onclick="verifySupervisorPin()">
+          <i class="fa-solid fa-shield-halved me-1"></i> Konfirmasi PIN
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL PERBAIKAN TEKNISI ==================== -->
+<div class="modal fade" id="modalPerbaikan" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="modalPerbaikanTitle"><i class="fa-solid fa-wrench me-2"></i>Laporan Perbaikan Teknisi</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="formPerbaikan" onsubmit="saveUpdatePerbaikan(event)">
+        <div class="modal-body">
+          <input type="hidden" id="modalJobId">
+          
+          <div class="alert alert-light border mb-2">
+            <strong>Detail Issue (Supervisor):</strong> <span id="modalIssueText" class="text-danger"></span>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label fw-bold mb-1">Status Pekerjaan <span class="text-danger">*</span></label>
+              <select id="modalStatus" class="form-select form-select-sm" required>
+                <option value="In Progress">In Progress (Proses Kerjakan)</option>
+                <option value="Closed">Closed (Selesai Perbaikan)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold mb-1">Waktu Selesai Perbaikan <span class="text-danger">*</span></label>
+              <input type="datetime-local" id="modalSelesai" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold mb-1">Tindakan Perbaikan yang Dilakukan <span class="text-danger">*</span></label>
+              <textarea id="modalTindakan" class="form-control form-control-sm" rows="3" placeholder="Jelaskan tindakan teknisi secara rinci" required></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold mb-1">Part / Sparepart yang Diganti <span class="text-danger">*</span></label>
+              <input type="text" id="modalPart" class="form-control form-control-sm" placeholder="Contoh: Bearing 6204-RS (2 pcs), O-ring Seal (1 pc)" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold mb-1">Upload Foto Hasil / Bukti Perbaikan <span class="text-danger">*</span></label>
+              <input type="file" id="modalFoto" class="form-control form-control-sm" accept="image/*">
+              <div id="modalFotoPreview" class="mt-1"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Tutup</button>
+          <button type="submit" class="btn btn-sm btn-success px-3"><i class="fa-solid fa-floppy-disk me-1"></i> Simpan Laporan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL PREVIEW FOTO ==================== -->
+<div class="modal fade" id="modalPreviewFoto" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title fw-bold">Foto Bukti Perbaikan</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center p-2">
+        <img id="imgModalTarget" src="" class="img-preview-modal">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  let currentMode = 'supervisor'; // Mode default saat pertama dibuka
+  const SUPERVISOR_PIN = '1234';  // GANTI PIN SUPERVISOR DI SINI (Contoh: '5678')
+
+  let modalInstance = null;
+  let modalFotoInstance = null;
+  let modalPinInstance = null;
+
+  // Chart Instances
+  let chartPersonilInst = null;
+  let chartStatusPieInst = null;
+  let chartPersonilOpenInst = null;
+  let chartLineOpenInst = null;
+  let chartMesinOpenInst = null;
+
+  // State Filter Klik Grafik
+  let selectedChartFilter = { type: null, value: null };
+
+  // Master & Transaction Data
+  let dataTeknisi = JSON.parse(localStorage.getItem('dataTeknisi')) || [
+    { id: 1, nama: "Budi Utama", section: "Mekanik", spesialisasi: "Overhaul Motor", motto: "Kerja Cepat & Rapi", foto: "" },
+    { id: 2, nama: "Andi Saputra", section: "Elektrik", spesialisasi: "PLC & Sensor", motto: "Nol Zero Accident", foto: "" },
+    { id: 3, nama: "Slamet S", section: "Utility", spesialisasi: "Chiller & Boiler", motto: "Utility Handal", foto: "" }
+  ];
+
+  let dataMesin = JSON.parse(localStorage.getItem('dataMesin')) || [
+    { id: 1, line: "Line 1 - Packaging", nama: "Conveyor Belt A", tipe: "CV-2000" },
+    { id: 2, line: "Line 1 - Packaging", nama: "Sealer Machine B", tipe: "SL-500" },
+    { id: 3, line: "Line 2 - Processing", nama: "Mixer Tank 1", tipe: "MX-1000L" }
+  ];
+
+  let dataJobs = JSON.parse(localStorage.getItem('dataJobs')) || [];
+
+  function saveData() {
+    localStorage.setItem('dataTeknisi', JSON.stringify(dataTeknisi));
+    localStorage.setItem('dataMesin', JSON.stringify(dataMesin));
+    localStorage.setItem('dataJobs', JSON.stringify(dataJobs));
+  }
+
+  function getSectionBadgeClass(section) {
+    switch((section || '').toLowerCase()) {
+      case 'mekanik': return 'badge-sec-mekanik';
+      case 'elektrik': return 'badge-sec-elektrik';
+      case 'utility': return 'badge-sec-utility';
+      case 'planner': return 'badge-sec-planner';
+      case 'helper': return 'badge-sec-helper';
+      default: return 'bg-secondary text-white';
+    }
+  }
+
+  // Permintaan Ganti Mode (Dengan Validasi PIN jika mau ke Supervisor)
+  function requestModeChange() {
+    if (currentMode === 'supervisor') {
+      currentMode = 'teknisi';
+      document.getElementById('currentModeLabel').innerText = 'Teknisi';
+      setupMenuByMode();
+      switchTab('dashboard');
+    } else {
+      document.getElementById('inputSupervisorPin').value = '';
+      document.getElementById('pinErrorMessage').classList.add('d-none');
+      if (!modalPinInstance) {
+        modalPinInstance = new bootstrap.Modal(document.getElementById('modalPinSupervisor'));
+      }
+      modalPinInstance.show();
+    }
+  }
+
+  function verifySupervisorPin() {
+    const inputPin = document.getElementById('inputSupervisorPin').value;
+    if (inputPin === SUPERVISOR_PIN) {
+      currentMode = 'supervisor';
+      document.getElementById('currentModeLabel').innerText = 'Supervisor';
+      modalPinInstance.hide();
+      setupMenuByMode();
+      switchTab('dashboard');
+    } else {
+      document.getElementById('pinErrorMessage').classList.remove('d-none');
+    }
+  }
+
+  function setupMenuByMode() {
+    const menu = document.getElementById('sidebarMenu');
+    if (currentMode === 'supervisor') {
+      menu.innerHTML = `
+        <li class="nav-item">
+          <a class="nav-link active" onclick="switchTab('dashboard')"><i class="fa-solid fa-chart-line me-2"></i> Dashboard Analytics</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" onclick="switchTab('list-jobs')"><i class="fa-solid fa-list-check me-2"></i> List Job Maintenance</a>
+        </li>
+        <li>
+          <a class="nav-link" onclick="switchTab('create-issue')"><i class="fa-solid fa-plus-circle me-2"></i> Buat Issue Baru</a>
+        </li>
+        <li>
+          <a class="nav-link" onclick="switchTab('master-teknisi')"><i class="fa-solid fa-user-gear me-2"></i> Profil Teknisi</a>
+        </li>
+        <li>
+          <a class="nav-link" onclick="switchTab('master-mesin')"><i class="fa-solid fa-industry me-2"></i> Profil Mesin & Line</a>
+        </li>
+      `;
+      document.getElementById('btnCreateIssue').classList.remove('d-none');
+      document.getElementById('filterBarSupervisor').classList.remove('d-none');
+      document.getElementById('teknisiIdentityBar').classList.add('d-none');
+    } else {
+      // Mode Teknisi: Menu Dashboard & Rekap Tetap Tersedia
+      menu.innerHTML = `
+        <li class="nav-item">
+          <a class="nav-link active" onclick="switchTab('dashboard')"><i class="fa-solid fa-chart-line me-2"></i> Dashboard Analytics</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" onclick="switchTab('list-jobs')"><i class="fa-solid fa-wrench me-2"></i> Pekerjaan Saya & Rekap</a>
+        </li>
+      `;
+      document.getElementById('btnCreateIssue').classList.add('d-none');
+      document.getElementById('filterBarSupervisor').classList.add('d-none');
+      document.getElementById('teknisiIdentityBar').classList.remove('d-none');
+    }
+  }
+
+  function switchTab(tabId) {
+    ['dashboard', 'list-jobs', 'create-issue', 'master-teknisi', 'master-mesin'].forEach(id => {
+      const el = document.getElementById('tab-' + id);
+      if (el) el.classList.add('d-none');
+    });
+
+    if (currentMode === 'teknisi' && (tabId === 'create-issue' || tabId === 'master-teknisi' || tabId === 'master-mesin')) {
+      tabId = 'dashboard';
+    }
+
+    document.getElementById('tab-' + tabId).classList.remove('d-none');
+    
+    initDropdowns();
+    if (tabId === 'dashboard') renderDashboardAnalytics();
+    if (tabId === 'list-jobs') renderDashboard();
+    renderMasterData();
+  }
+
+  function initDropdowns() {
+    const issueTeknisi = document.getElementById('issueTeknisi');
+    const filterTeknisi = document.getElementById('filterTeknisi');
+    const selectNamaTeknisiAktif = document.getElementById('selectNamaTeknisiAktif');
+
+    issueTeknisi.innerHTML = '<option value="">-- Pilih Teknisi --</option>';
+    filterTeknisi.innerHTML = '<option value="">-- Semua Teknisi --</option>';
+    selectNamaTeknisiAktif.innerHTML = '<option value="">-- Pilih Nama Anda --</option>';
+    
+    dataTeknisi.forEach(t => {
+      issueTeknisi.innerHTML += `<option value="${t.nama}">${t.nama} (${t.section})</option>`;
+      filterTeknisi.innerHTML += `<option value="${t.nama}">${t.nama}</option>`;
+      selectNamaTeknisiAktif.innerHTML += `<option value="${t.nama}">${t.nama} - [${t.section}]</option>`;
+    });
+
+    const lines = [...new Set(dataMesin.map(m => m.line))];
+    const issueLine = document.getElementById('issueLine');
+    const filterLine = document.getElementById('filterLine');
+    issueLine.innerHTML = '<option value="">-- Pilih Line --</option>';
+    filterLine.innerHTML = '<option value="">-- Semua Line --</option>';
+    
+    lines.forEach(l => {
+      issueLine.innerHTML += `<option value="${l}">${l}</option>`;
+      filterLine.innerHTML += `<option value="${l}">${l}</option>`;
+    });
+
+    updateMesinDropdownIssue();
+    updateFilterMesinDropdown();
+  }
+
+  function updateMesinDropdownIssue() {
+    const selectedLine = document.getElementById('issueLine').value;
+    const issueMesin = document.getElementById('issueMesin');
+    issueMesin.innerHTML = '<option value="">-- Pilih Mesin --</option>';
+    
+    dataMesin.filter(m => m.line === selectedLine).forEach(m => {
+      issueMesin.innerHTML += `<option value="${m.nama}">${m.nama} (${m.tipe})</option>`;
+    });
+  }
+
+  function updateFilterMesinDropdown() {
+    const filterMesin = document.getElementById('filterMesin');
+    filterMesin.innerHTML = '<option value="">-- Semua Mesin --</option>';
+    dataMesin.forEach(m => {
+      filterMesin.innerHTML += `<option value="${m.nama}">${m.nama}</option>`;
+    });
+  }
+
+  function saveNewIssue(e) {
+    e.preventDefault();
+    const newJob = {
+      id: 'WO-' + Math.floor(1000 + Math.random() * 9000),
+      line: document.getElementById('issueLine').value,
+      mesin: document.getElementById('issueMesin').value,
+      teknisi: document.getElementById('issueTeknisi').value,
+      mulai: document.getElementById('issueMulai').value,
+      issue: document.getElementById('issueDeskripsi').value,
+      status: 'Open',
+      perbaikan: '',
+      part: '',
+      selesai: '',
+      foto: ''
+    };
+
+    dataJobs.unshift(newJob);
+    saveData();
+    document.getElementById('formCreateIssue').reset();
+    alert('Issue berhasil didaftarkan dan dikirim ke Teknisi!');
+    switchTab('list-jobs');
+  }
+
+  function resetDashDateFilter() {
+    document.getElementById('dashStartDate').value = '';
+    document.getElementById('dashEndDate').value = '';
+    renderDashboardAnalytics();
+  }
+
+  function resetChartClickFilter() {
+    selectedChartFilter = { type: null, value: null };
+    document.getElementById('activeChartFilterLabel').classList.add('d-none');
+    document.getElementById('btnResetChartFilter').classList.add('d-none');
+    renderDashboardAnalytics();
+  }
+
+  function isDateInRange(dateStr, startStr, endStr) {
+    if (!dateStr) return true;
+    const jobDate = new Date(dateStr.replace('T', ' ')).getTime();
+    if (startStr) {
+      const sDate = new Date(startStr + 'T00:00:00').getTime();
+      if (jobDate < sDate) return false;
+    }
+    if (endStr) {
+      const eDate = new Date(endStr + 'T23:59:59').getTime();
+      if (jobDate > eDate) return false;
+    }
+    return true;
+  }
+
+  function renderDashboardAnalytics() {
+    const startDate = document.getElementById('dashStartDate').value;
+    const endDate = document.getElementById('dashEndDate').value;
+
+    let filteredJobs = dataJobs.filter(j => isDateInRange(j.mulai, startDate, endDate));
+
+    if (selectedChartFilter.type && selectedChartFilter.value) {
+      document.getElementById('activeChartFilterLabel').classList.remove('d-none');
+      document.getElementById('btnResetChartFilter').classList.remove('d-none');
+      document.getElementById('activeChartFilterText').innerText = `${selectedChartFilter.type}: ${selectedChartFilter.value}`;
+
+      if (selectedChartFilter.type === 'teknisi') {
+        filteredJobs = filteredJobs.filter(j => j.teknisi === selectedChartFilter.value);
+      } else if (selectedChartFilter.type === 'line') {
+        filteredJobs = filteredJobs.filter(j => j.line === selectedChartFilter.value);
+      } else if (selectedChartFilter.type === 'mesin') {
+        filteredJobs = filteredJobs.filter(j => j.mesin === selectedChartFilter.value);
+      }
+    }
+
+    const total = filteredJobs.length;
+    const openCount = filteredJobs.filter(j => j.status === 'Open').length;
+    const progressCount = filteredJobs.filter(j => j.status === 'In Progress').length;
+    const closedCount = filteredJobs.filter(j => j.status === 'Closed').length;
+    const rate = total > 0 ? Math.round((closedCount / total) * 100) : 0;
+
+    document.getElementById('cardTotalJob').innerText = total;
+    document.getElementById('cardOpenJob').innerText = openCount;
+    document.getElementById('cardProgressJob').innerText = progressCount;
+    document.getElementById('cardClosedJob').innerText = `${closedCount} (${rate}%)`;
+
+    const integerYAxisOption = {
+      beginAtZero: true,
+      ticks: {
+        stepSize: 1,
+        precision: 0,
+        callback: function(value) {
+          if (Math.floor(value) === value) return value;
+        }
+      }
+    };
+
+    const sections = ['Mekanik', 'Elektrik', 'Utility', 'Planner', 'Helper'];
+    const sectionCounts = sections.map(sec => dataTeknisi.filter(t => t.section === sec).length);
+
+    if (chartPersonilInst) chartPersonilInst.destroy();
+    chartPersonilInst = new Chart(document.getElementById('chartPersonil'), {
+      type: 'bar',
+      data: {
+        labels: sections,
+        datasets: [{
+          label: 'Jumlah Personil',
+          data: sectionCounts,
+          backgroundColor: ['#6c757d', '#0d6efd', '#198754', '#212529', '#fd7e14']
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: integerYAxisOption }
+      }
+    });
+
+    if (chartStatusPieInst) chartStatusPieInst.destroy();
+
+    const pieLabelsPlugin = {
+      id: 'pieLabelsPlugin',
+      afterDraw(chart) {
+        const { ctx, data } = chart;
+        const totalSum = data.datasets[0].data.reduce((a, b) => a + b, 0);
+        if (totalSum === 0) return;
+
+        chart.getDatasetMeta(0).data.forEach((datapoint, index) => {
+          const value = data.datasets[0].data[index];
+          if (value === 0) return;
+
+          const percentage = Math.round((value / totalSum) * 100) + '%';
+          const { x, y } = datapoint.tooltipPosition();
+
+          ctx.save();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px Segoe UI, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`${value} (${percentage})`, x, y);
+          ctx.restore();
+        });
+      }
+    };
+
+    chartStatusPieInst = new Chart(document.getElementById('chartStatusPie'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Open', 'In Progress', 'Closed'],
+        datasets: [{
+          data: [openCount, progressCount, closedCount],
+          backgroundColor: ['#ef4444', '#f59e0b', '#10b981']
+        }]
+      },
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: { 
+          legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } 
+        }
+      },
+      plugins: [pieLabelsPlugin]
+    });
+
+    const teknisiNames = dataTeknisi.map(t => t.nama);
+    const teknisiOpenCounts = teknisiNames.map(name => filteredJobs.filter(j => j.teknisi === name && j.status !== 'Closed').length);
+
+    const innerPersonil = document.getElementById('innerPersonilOpen');
+    if (teknisiNames.length > 3) {
+      innerPersonil.style.minWidth = (teknisiNames.length * 75) + 'px';
+    } else {
+      innerPersonil.style.minWidth = '100%';
+    }
+
+    if (chartPersonilOpenInst) chartPersonilOpenInst.destroy();
+    chartPersonilOpenInst = new Chart(document.getElementById('chartPersonilOpen'), {
+      type: 'bar',
+      data: {
+        labels: teknisiNames,
+        datasets: [{
+          label: 'Jumlah Job Open',
+          data: teknisiOpenCounts,
+          backgroundColor: '#ef4444'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: integerYAxisOption },
+        onClick: (e, elements) => {
+          if (elements.length > 0) {
+            const index = elements[0].index;
+            selectedChartFilter = { type: 'teknisi', value: teknisiNames[index] };
+            renderDashboardAnalytics();
+          }
+        }
+      }
+    });
+
+    const lineList = [...new Set(dataMesin.map(m => m.line))];
+    const lineOpenCounts = lineList.map(l => filteredJobs.filter(j => j.line === l && j.status !== 'Closed').length);
+
+    const innerLine = document.getElementById('innerLineOpen');
+    if (lineList.length > 3) {
+      innerLine.style.minWidth = (lineList.length * 80) + 'px';
+    } else {
+      innerLine.style.minWidth = '100%';
+    }
+
+    if (chartLineOpenInst) chartLineOpenInst.destroy();
+    chartLineOpenInst = new Chart(document.getElementById('chartLineOpen'), {
+      type: 'bar',
+      data: {
+        labels: lineList,
+        datasets: [{ label: 'Jumlah Job Open', data: lineOpenCounts, backgroundColor: '#f59e0b' }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: integerYAxisOption },
+        onClick: (e, elements) => {
+          if (elements.length > 0) {
+            const index = elements[0].index;
+            selectedChartFilter = { type: 'line', value: lineList[index] };
+            renderDashboardAnalytics();
+          }
+        }
+      }
+    });
+
+    const mesinList = [...new Set(dataMesin.map(m => m.nama))];
+    const mesinOpenCounts = mesinList.map(m => filteredJobs.filter(j => j.mesin === m && j.status !== 'Closed').length);
+
+    const innerMesin = document.getElementById('innerMesinOpen');
+    if (mesinList.length > 3) {
+      innerMesin.style.minWidth = (mesinList.length * 80) + 'px';
+    } else {
+      innerMesin.style.minWidth = '100%';
+    }
+
+    if (chartMesinOpenInst) chartMesinOpenInst.destroy();
+    chartMesinOpenInst = new Chart(document.getElementById('chartMesinOpen'), {
+      type: 'bar',
+      data: {
+        labels: mesinList,
+        datasets: [{ label: 'Jumlah Job Open', data: mesinOpenCounts, backgroundColor: '#dc2626' }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: integerYAxisOption },
+        onClick: (e, elements) => {
+          if (elements.length > 0) {
+            const index = elements[0].index;
+            selectedChartFilter = { type: 'mesin', value: mesinList[index] };
+            renderDashboardAnalytics();
+          }
+        }
+      }
+    });
+  }
+
+  function renderDashboard() {
+    let fTeknisi = document.getElementById('filterTeknisi').value;
+    let fLine = document.getElementById('filterLine').value;
+    let fMesin = document.getElementById('filterMesin').value;
+    let fStatus = document.getElementById('filterStatus').value;
+    let fStart = document.getElementById('filterStartDate').value;
+    let fEnd = document.getElementById('filterEndDate').value;
+
+    if (currentMode === 'teknisi') {
+      fTeknisi = document.getElementById('selectNamaTeknisiAktif').value;
+      fLine = '';
+      fMesin = '';
+      fStatus = '';
+      fStart = document.getElementById('filterTeknisiStartDate').value;
+      fEnd = document.getElementById('filterTeknisiEndDate').value;
+
+      const activeTeknisiObj = dataTeknisi.find(t => t.nama === fTeknisi);
+      const avatarContainer = document.getElementById('teknisiActiveAvatarContainer');
+      
+      if (activeTeknisiObj && activeTeknisiObj.foto) {
+        avatarContainer.innerHTML = `<img src="${activeTeknisiObj.foto}" class="avatar-lg-square" title="${activeTeknisiObj.nama}">`;
+      } else if (activeTeknisiObj) {
+        avatarContainer.innerHTML = `<div class="avatar-lg-square bg-secondary text-white d-flex align-items-center justify-content-center fw-bold mx-auto fs-1">${activeTeknisiObj.nama.charAt(0)}</div>`;
+      } else {
+        avatarContainer.innerHTML = `<div class="avatar-lg-square bg-light text-muted d-flex align-items-center justify-content-center mx-auto fs-1"><i class="fa-solid fa-user"></i></div>`;
+      }
+
+      if (fTeknisi) {
+        const myJobs = dataJobs.filter(j => j.teknisi === fTeknisi && isDateInRange(j.mulai, fStart, fEnd));
+        const myOpen = myJobs.filter(j => j.status !== 'Closed').length;
+        const myClosed = myJobs.filter(j => j.status === 'Closed').length;
+        const myRate = myJobs.length > 0 ? Math.round((myClosed / myJobs.length) * 100) : 0;
+
+        document.getElementById('tekStatOpen').innerText = myOpen;
+        document.getElementById('tekStatClosed').innerText = myClosed;
+        document.getElementById('tekStatRate').innerText = `${myRate}%`;
+      } else {
+        document.getElementById('tekStatOpen').innerText = 0;
+        document.getElementById('tekStatClosed').innerText = 0;
+        document.getElementById('tekStatRate').innerText = `0%`;
+      }
+    }
+
+    const filtered = dataJobs.filter(j => {
+      return (!fTeknisi || j.teknisi === fTeknisi) &&
+             (!fLine || j.line === fLine) &&
+             (!fMesin || j.mesin === fMesin) &&
+             (!fStatus || j.status === fStatus) &&
+             isDateInRange(j.mulai, fStart, fEnd);
+    });
+
+    const tbody = document.getElementById('jobTableBody');
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Belum ada data job order yang sesuai.</td></tr>';
+      return;
+    }
+
+    filtered.forEach(j => {
+      let badgeClass = 'badge-open';
+      if (j.status === 'In Progress') badgeClass = 'badge-progress';
+      if (j.status === 'Closed') badgeClass = 'badge-closed';
+
+      let fotoBtn = j.foto ? `<button class="btn btn-sm btn-outline-info py-0 px-2" onclick="showFotoModal('${j.id}')"><i class="fa-solid fa-image me-1"></i> Lihat Foto</button>` : '<span class="text-muted small">Tanpa Foto</span>';
+
+      let actionBtn = '';
+      if (currentMode === 'teknisi') {
+        actionBtn = `<button class="btn btn-sm btn-primary py-0 px-2" onclick="openModalPerbaikan('${j.id}')"><i class="fa-solid fa-pen-to-square me-1"></i> Update Perbaikan</button>`;
+      } else {
+        actionBtn = `
+          <button class="btn btn-sm btn-outline-primary py-0 px-2 mb-1" onclick="openModalPerbaikan('${j.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteJob('${j.id}')"><i class="fa-solid fa-trash"></i></button>
+        `;
+      }
+
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${j.id}</strong></td>
+          <td><small>${j.mulai ? j.mulai.replace('T', ' ') : '-'}</small></td>
+          <td><i class="fa-solid fa-user-gear me-1"></i><b>${j.teknisi}</b></td>
+          <td><small><b>${j.line}</b><br>${j.mesin}</small></td>
+          <td><span class="text-danger fw-bold">${j.issue}</span></td>
+          <td>
+            <small><b>Tindakan:</b> ${j.perbaikan || '<i class="text-muted">Belum diisi</i>'}</small><br>
+            <small class="text-success"><b>Part:</b> ${j.part || '-'}</small>
+          </td>
+          <td>${fotoBtn}</td>
+          <td><span class="badge ${badgeClass}">${j.status}</span></td>
+          <td>${actionBtn}</td>
+        </tr>
+      `;
+    });
+  }
+
+  function exportToExcel() {
+    let fTeknisi = (currentMode === 'teknisi') ? document.getElementById('selectNamaTeknisiAktif').value : document.getElementById('filterTeknisi').value;
+    let fLine = (currentMode === 'teknisi') ? '' : document.getElementById('filterLine').value;
+    let fMesin = (currentMode === 'teknisi') ? '' : document.getElementById('filterMesin').value;
+    let fStatus = (currentMode === 'teknisi') ? '' : document.getElementById('filterStatus').value;
+    let fStart = (currentMode === 'teknisi') ? document.getElementById('filterTeknisiStartDate').value : document.getElementById('filterStartDate').value;
+    let fEnd = (currentMode === 'teknisi') ? document.getElementById('filterTeknisiEndDate').value : document.getElementById('filterEndDate').value;
+
+    const filtered = dataJobs.filter(j => {
+      return (!fTeknisi || j.teknisi === fTeknisi) &&
+             (!fLine || j.line === fLine) &&
+             (!fMesin || j.mesin === fMesin) &&
+             (!fStatus || j.status === fStatus) &&
+             isDateInRange(j.mulai, fStart, fEnd);
+    });
+
+    if (filtered.length === 0) {
+      alert('Tidak ada data job order untuk di-export!');
+      return;
+    }
+
+    const excelData = filtered.map((j, index) => ({
+      "No": index + 1,
+      "No Job Order": j.id,
+      "Waktu Temuan Issue": j.mulai ? j.mulai.replace('T', ' ') : '-',
+      "Teknisi PJ": j.teknisi,
+      "Line Produksi": j.line,
+      "Nama Mesin": j.mesin,
+      "Detail Keluhan / Issue": j.issue,
+      "Tindakan Perbaikan": j.perbaikan || '-',
+      "Part Diganti": j.part || '-',
+      "Waktu Selesai": j.selesai ? j.selesai.replace('T', ' ') : '-',
+      "Status Job": j.status
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Job Order Maintenance");
+
+    let fileName = `Laporan_Maintenance_Ngoro.xlsx`;
+    if (fStart || fEnd) {
+      fileName = `Laporan_Maintenance_${fStart || 'Awal'}_s.d_${fEnd || 'Akhir'}.xlsx`;
+    }
+
+    XLSX.writeFile(workbook, fileName);
+  }
+
+  function showFotoModal(id) {
+    const job = dataJobs.find(j => j.id === id);
+    if (!job || !job.foto) return;
+
+    document.getElementById('imgModalTarget').src = job.foto;
+    if (!modalFotoInstance) {
+      modalFotoInstance = new bootstrap.Modal(document.getElementById('modalPreviewFoto'));
+    }
+    modalFotoInstance.show();
+  }
+
+  function openModalPerbaikan(id) {
+    const job = dataJobs.find(j => j.id === id);
+    if (!job) return;
+
+    document.getElementById('modalJobId').value = job.id;
+    document.getElementById('modalIssueText').innerText = `${job.line} / ${job.mesin} - ${job.issue}`;
+    document.getElementById('modalStatus').value = job.status === 'Open' ? 'In Progress' : job.status;
+    document.getElementById('modalSelesai').value = job.selesai || new Date().toISOString().slice(0, 16);
+    document.getElementById('modalTindakan').value = job.perbaikan || '';
+    document.getElementById('modalPart').value = job.part || '';
+    
+    const fotoInput = document.getElementById('modalFoto');
+    if (!job.foto) {
+      fotoInput.setAttribute('required', 'required');
+    } else {
+      fotoInput.removeAttribute('required');
+    }
+
+    const fotoPreview = document.getElementById('modalFotoPreview');
+    fotoPreview.innerHTML = job.foto ? `<span class="badge bg-success mb-1">Foto Sudah Ada</span><br><img src="${job.foto}" style="max-height:80px; border-radius:4px;">` : '';
+
+    if (!modalInstance) {
+      modalInstance = new bootstrap.Modal(document.getElementById('modalPerbaikan'));
+    }
+    modalInstance.show();
+  }
+
+  function saveUpdatePerbaikan(e) {
+    e.preventDefault();
+    const id = document.getElementById('modalJobId').value;
+    const jobIndex = dataJobs.findIndex(j => j.id === id);
+    if (jobIndex === -1) return;
+
+    const fotoInput = document.getElementById('modalFoto');
+
+    const updateJobData = (fotoData) => {
+      dataJobs[jobIndex].status = document.getElementById('modalStatus').value;
+      dataJobs[jobIndex].selesai = document.getElementById('modalSelesai').value;
+      dataJobs[jobIndex].perbaikan = document.getElementById('modalTindakan').value;
+      dataJobs[jobIndex].part = document.getElementById('modalPart').value;
+      if (fotoData) {
+        dataJobs[jobIndex].foto = fotoData;
+      }
+
+      saveData();
+      modalInstance.hide();
+      renderDashboard();
+      alert('Laporan perbaikan berhasil diperbarui!');
+    };
+
+    if (fotoInput.files && fotoInput.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        updateJobData(e.target.result);
+      };
+      reader.readAsDataURL(fotoInput.files[0]);
+    } else {
+      if (!dataJobs[jobIndex].foto) {
+        alert('Foto bukti perbaikan wajib diupload!');
+        return;
+      }
+      updateJobData(null);
+    }
+  }
+
+  function deleteJob(id) {
+    if (confirm('Hapus Job Order ini?')) {
+      dataJobs = dataJobs.filter(j => j.id !== id);
+      saveData();
+      renderDashboard();
+    }
+  }
+
+  function saveTeknisi(e) {
+    e.preventDefault();
+    const editId = document.getElementById('editTeknisiId').value;
+    const nama = document.getElementById('namaTeknisi').value;
+    const section = document.getElementById('sectionTeknisi').value;
+    const spesialisasi = document.getElementById('spesialisasiTeknisi').value;
+    const motto = document.getElementById('mottoTeknisi').value;
+    const fotoInput = document.getElementById('fotoTeknisi');
+
+    const processSave = (fotoData) => {
+      if (editId) {
+        const idx = dataTeknisi.findIndex(t => t.id == editId);
+        if (idx !== -1) {
+          dataTeknisi[idx].nama = nama;
+          dataTeknisi[idx].section = section;
+          dataTeknisi[idx].spesialisasi = spesialisasi;
+          dataTeknisi[idx].motto = motto;
+          if (fotoData) dataTeknisi[idx].foto = fotoData;
+        }
+        alert('Profil teknisi berhasil diperbarui!');
+      } else {
+        dataTeknisi.push({ id: Date.now(), nama, section, spesialisasi, motto, foto: fotoData || '' });
+        alert('Teknisi berhasil ditambahkan!');
+      }
+
+      saveData();
+      cancelEditTeknisi();
+      renderMasterData();
+      initDropdowns();
+    };
+
+    if (fotoInput.files && fotoInput.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) { processSave(e.target.result); };
+      reader.readAsDataURL(fotoInput.files[0]);
+    } else {
+      processSave(null);
+    }
+  }
+
+  function editTeknisi(id) {
+    const t = dataTeknisi.find(item => item.id === id);
+    if (!t) return;
+
+    document.getElementById('editTeknisiId').value = t.id;
+    document.getElementById('namaTeknisi').value = t.nama;
+    document.getElementById('sectionTeknisi').value = t.section || '';
+    document.getElementById('spesialisasiTeknisi').value = t.spesialisasi;
+    document.getElementById('mottoTeknisi').value = t.motto || '';
+    
+    document.getElementById('formTeknisiTitle').innerText = 'Edit Profil Teknisi';
+    document.getElementById('btnSaveTeknisi').innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Simpan Perubahan';
+    document.getElementById('btnSaveTeknisi').className = 'btn btn-sm btn-primary w-50';
+    document.getElementById('btnCancelEditTeknisi').classList.remove('d-none');
+
+    const prevDiv = document.getElementById('editFotoTeknisiPreview');
+    prevDiv.innerHTML = t.foto ? `<small class="badge bg-success">Foto Ada</small>` : '';
+  }
+
+  function cancelEditTeknisi() {
+    document.getElementById('editTeknisiId').value = '';
+    document.getElementById('formTeknisi').reset();
+    document.getElementById('formTeknisiTitle').innerText = 'Tambah Profil Teknisi';
+    document.getElementById('btnSaveTeknisi').innerHTML = '<i class="fa-solid fa-plus me-1"></i> Tambah Teknisi';
+    document.getElementById('btnSaveTeknisi').className = 'btn btn-sm btn-success w-100';
+    document.getElementById('btnCancelEditTeknisi').classList.add('d-none');
+    document.getElementById('editFotoTeknisiPreview').innerHTML = '';
+  }
+
+  function deleteTeknisi(id) {
+    if (confirm('Hapus profil teknisi ini?')) {
+      dataTeknisi = dataTeknisi.filter(t => t.id !== id);
+      saveData();
+      renderMasterData();
+      initDropdowns();
+    }
+  }
+
+  function addMesin(e) {
+    e.preventDefault();
+    const line = document.getElementById('lineNama').value;
+    const nama = document.getElementById('mesinNama').value;
+    const tipe = document.getElementById('mesinTipe').value;
+    dataMesin.push({ id: Date.now(), line, nama, tipe });
+    saveData();
+    document.getElementById('formMesin').reset();
+    renderMasterData();
+    initDropdowns();
+    alert('Mesin berhasil ditambahkan!');
+  }
+
+  function deleteMesin(id) {
+    if (confirm('Hapus data mesin ini?')) {
+      dataMesin = dataMesin.filter(m => m.id !== id);
+      saveData();
+      renderMasterData();
+      initDropdowns();
+    }
+  }
+
+  function renderMasterData() {
+    const listTeknisi = document.getElementById('listTeknisi');
+    if (listTeknisi) {
+      listTeknisi.innerHTML = '';
+      dataTeknisi.forEach(t => {
+        let avatar = t.foto ? `<img src="${t.foto}" class="avatar-img me-3">` : `<div class="avatar-img me-3 bg-secondary text-white d-flex align-items-center justify-content-center fw-bold">${t.nama.charAt(0)}</div>`;
+        let secClass = getSectionBadgeClass(t.section);
+
+        listTeknisi.innerHTML += `
+          <li class="list-group-item d-flex justify-content-between align-items-center p-2">
+            <div class="d-flex align-items-center">
+              ${avatar}
+              <div>
+                <strong>${t.nama}</strong> 
+                <span class="badge ${secClass} ms-1">${t.section || 'General'}</span>
+                <small class="text-muted ms-2">(${t.spesialisasi})</small>
+                <br><small class="text-muted"><i>"${t.motto || '-'}"</i></small>
+              </div>
+            </div>
+            <div>
+              <button class="btn btn-sm btn-outline-primary py-0 px-2 me-1" onclick="editTeknisi(${t.id})"><i class="fa-solid fa-pen"></i> Edit</button>
+              <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteTeknisi(${t.id})"><i class="fa-solid fa-trash"></i> Hapus</button>
+            </div>
+          </li>`;
+      });
+    }
+
+    const listMesinTable = document.getElementById('listMesinTable');
+    if (listMesinTable) {
+      listMesinTable.innerHTML = '';
+      dataMesin.forEach(m => {
+        listMesinTable.innerHTML += `
+          <tr>
+            <td>${m.line}</td>
+            <td><strong>${m.nama}</strong></td>
+            <td>${m.tipe}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteMesin(${m.id})"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>`;
+      });
+    }
+  }
+
+  document.getElementById('issueMulai').value = new Date().toISOString().slice(0, 16);
+
+  setupMenuByMode();
+  initDropdowns();
+  renderDashboardAnalytics();
+  renderDashboard();
+  renderMasterData();
+</script>
+</body>
+</html>
