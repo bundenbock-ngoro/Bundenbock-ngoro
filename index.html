@@ -368,7 +368,7 @@
         </div>
       </div>
 
-     <!-- TAB 4: MASTER TEKNISI -->
+      <!-- TAB 4: MASTER TEKNISI -->
       <div id="tab-master-teknisi" class="d-none">
         <h5 class="fw-bold mb-2">Master Data - Profil Teknisi</h5>
         <div class="row">
@@ -666,7 +666,7 @@
     document.getElementById('loadingOverlay').classList.add('d-none');
   }
 
- // KOMPRESI FOTO SANGAT RINGAN & SIMPAN LANGSUNG KE FIREBASE (TANPA GOOGLE DRIVE / APPS SCRIPT)
+  // KOMPRESI SANGAT RINGAN UNTUK REALTIME FIREBASE (TANPA APPS SCRIPT / FETCH NETWORK ERROR)
   function compressAndUploadImage(fileInput) {
     return new Promise((resolve, reject) => {
       if (!fileInput.files || !fileInput.files[0]) {
@@ -684,7 +684,7 @@
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const maxDim = 600; // Dikompres maksimal 600px agar sangat ringan (~40-70 KB)
+          const maxDim = 600; 
 
           if (width > height) {
             if (width > maxDim) {
@@ -703,7 +703,6 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Mengambil string Base64 langsung berkualitas 60%
           const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
           hideLoading();
           resolve(dataUrl);
@@ -814,7 +813,7 @@
     renderMasterData();
   }
 
- function initDropdowns() {
+  function initDropdowns() {
     const issueTeknisi = document.getElementById('issueTeknisi');
     const filterTeknisi = document.getElementById('filterTeknisi');
     const selectNamaTeknisiAktif = document.getElementById('selectNamaTeknisiAktif');
@@ -1545,23 +1544,6 @@
             </tr>`;
         });
       }
-    }
-  }
-
-    const listMesinTable = document.getElementById('listMesinTable');
-    if (listMesinTable) {
-      listMesinTable.innerHTML = '';
-      window.dataMesin.forEach(m => {
-        listMesinTable.innerHTML += `
-          <tr>
-            <td>${m.line}</td>
-            <td><strong>${m.nama}</strong></td>
-            <td>${m.tipe}</td>
-            <td class="text-center">
-              <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteMesin('${m._key}')"><i class="fa-solid fa-trash"></i></button>
-            </td>
-          </tr>`;
-      });
     }
   }
 
