@@ -634,7 +634,7 @@
     document.getElementById('loadingOverlay').classList.add('d-none');
   }
 
-  // KOMPRESI SANGAT RINGAN UNTUK REALTIME FIREBASE (LANGSUNG TAMPIL DENGAN CEBAT)
+ // KOMPRESI FOTO SANGAT RINGAN & SIMPAN LANGSUNG KE FIREBASE (TANPA GOOGLE DRIVE / APPS SCRIPT)
   function compressAndUploadImage(fileInput) {
     return new Promise((resolve, reject) => {
       if (!fileInput.files || !fileInput.files[0]) {
@@ -652,7 +652,7 @@
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const maxDim = 600; 
+          const maxDim = 600; // Dikompres maksimal 600px agar sangat ringan (~40-70 KB)
 
           if (width > height) {
             if (width > maxDim) {
@@ -671,6 +671,7 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
+          // Mengambil string Base64 langsung berkualitas 60%
           const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
           hideLoading();
           resolve(dataUrl);
