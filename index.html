@@ -1171,13 +1171,19 @@
       fStart = document.getElementById('filterTeknisiStartDate').value;
       fEnd = document.getElementById('filterTeknisiEndDate').value;
 
-      const activeTeknisiObj = window.dataTeknisi.find(t => t.nama === fTeknisi);
+    const activeTeknisiObj = window.dataTeknisi.find(t => t.nama === fTeknisi);
       const avatarContainer = document.getElementById('teknisiActiveAvatarContainer');
       
-      if (activeTeknisiObj && activeTeknisiObj.foto) {
-        avatarContainer.innerHTML = `<img src="${activeTeknisiObj.foto}" class="avatar-lg-square" title="${activeTeknisiObj.nama}">`;
-      } else if (activeTeknisiObj) {
-        avatarContainer.innerHTML = `<div class="avatar-lg-square bg-secondary text-white d-flex align-items-center justify-content-center fw-bold mx-auto fs-1">${activeTeknisiObj.nama.charAt(0)}</div>`;
+      if (activeTeknisiObj) {
+        let fotoHtml = activeTeknisiObj.foto 
+          ? `<img src="${activeTeknisiObj.foto}" class="avatar-lg-square" title="${activeTeknisiObj.nama}">`
+          : `<div class="avatar-lg-square bg-secondary text-white d-flex align-items-center justify-content-center fw-bold mx-auto fs-1">${activeTeknisiObj.nama.charAt(0)}</div>`;
+        
+        let mottoHtml = activeTeknisiObj.motto 
+          ? `<div class="mt-2 text-center"><small class="text-muted fw-bold italic" style="font-size:0.75rem;"><i>"${activeTeknisiObj.motto}"</i></small></div>`
+          : '';
+
+        avatarContainer.innerHTML = fotoHtml + mottoHtml;
       } else {
         avatarContainer.innerHTML = `<div class="avatar-lg-square bg-light text-muted d-flex align-items-center justify-content-center mx-auto fs-1"><i class="fa-solid fa-user"></i></div>`;
       }
