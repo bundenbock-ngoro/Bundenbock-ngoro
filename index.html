@@ -47,6 +47,14 @@
     .table-scroll-container { max-height: 55vh; overflow-y: auto; }
     .chart-active-filter-badge { font-size: 0.72rem; }
 
+    /* CSS KUSTOM KHUSUS SCROLL BOX MASTER DATA */
+    .master-scroll-box {
+      max-height: 420px;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+
     #loadingOverlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(15, 23, 42, 0.7); z-index: 9999;
@@ -61,6 +69,7 @@
       .avatar-lg-square { width: 110px; height: 110px; }
       .table-scroll-container { max-height: 65vh; }
       .chart-box-compact, .chart-scroll-inner { height: 160px; }
+      .master-scroll-box { max-height: 350px; }
     }
   </style>
 </head>
@@ -69,7 +78,7 @@
 <!-- Loading Overlay -->
 <div id="loadingOverlay" class="d-none">
   <div class="spinner-border text-warning mb-2" role="status" style="width: 3rem; height: 3rem;"></div>
-  <span id="loadingText">Memproses Gambar...</span>
+  <span id="loadingText">Memproses Data...</span>
 </div>
 
 <div class="container-fluid p-0">
@@ -416,11 +425,11 @@
             <div class="card p-2">
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="fw-bold m-0" style="font-size:0.85rem;">Daftar Teknisi Aktif</h6>
-                <!-- Filter Section Teknisi -->
+                <!-- Filter Section Teknisi (Ada Opsi Semua / ALL) -->
                 <div class="d-flex align-items-center gap-1" style="width: 220px;">
                   <small class="fw-bold text-muted" style="font-size:0.75rem;"><i class="fa-solid fa-filter"></i></small>
                   <select id="filterMasterTeknisiSection" class="form-select form-select-sm" onchange="renderMasterData()">
-                    <option value="">-- Semua Section --</option>
+                    <option value="">-- Semua Section (All) --</option>
                     <option value="Mekanik">Mekanik</option>
                     <option value="Elektrik">Elektrik</option>
                     <option value="Utility">Utility</option>
@@ -429,9 +438,9 @@
                   </select>
                 </div>
               </div>
-              <!-- Box List Teknisi Scrollable -->
-              <div style="max-height: 55vh; overflow-y: auto;">
-                <ul class="list-group" id="listTeknisi"></ul>
+              <!-- Kotak List Teknisi Scrollable Khusus -->
+              <div class="master-scroll-box">
+                <ul class="list-group list-group-flush" id="listTeknisi"></ul>
               </div>
             </div>
           </div>
@@ -468,19 +477,19 @@
                 <div class="col-12 col-md-4">
                   <h6 class="fw-bold m-0" style="font-size:0.85rem;">Daftar Profil Mesin & Line</h6>
                 </div>
-                <!-- Filter Line & Cari Mesin -->
+                <!-- Filter Line & Cari Mesin (Ada Opsi Semua Line / ALL) -->
                 <div class="col-6 col-md-4">
                   <select id="filterMasterLine" class="form-select form-select-sm" onchange="renderMasterData()">
-                    <option value="">-- Semua Line --</option>
+                    <option value="">-- Semua Line (All) --</option>
                   </select>
                 </div>
                 <div class="col-6 col-md-4">
-                  <input type="text" id="searchMasterMesin" class="form-control form-control-sm" placeholder="Cari mesin / tipe..." onkeyup="renderMasterData()">
+                  <input type="text" id="searchMasterMesin" class="form-control form-control-sm" placeholder="Cari nama/tipe (All)..." onkeyup="renderMasterData()">
                 </div>
               </div>
 
-              <!-- Box Tabel Mesin Scrollable -->
-              <div class="table-responsive" style="max-height: 52vh; overflow-y: auto;">
+              <!-- Kotak Tabel Mesin Scrollable Khusus -->
+              <div class="master-scroll-box">
                 <table class="table table-bordered align-middle mb-0" style="font-size:0.82rem;">
                   <thead class="table-light sticky-top">
                     <tr>
@@ -657,7 +666,7 @@
   window.dataMesin = [];
   window.dataJobs = [];
 
-  function showLoading(text = "Memproses Gambar...") {
+  function showLoading(text = "Memproses Data...") {
     document.getElementById('loadingText').innerText = text;
     document.getElementById('loadingOverlay').classList.remove('d-none');
   }
@@ -666,7 +675,7 @@
     document.getElementById('loadingOverlay').classList.add('d-none');
   }
 
-  // KOMPRESI SANGAT RINGAN UNTUK REALTIME FIREBASE (TANPA APPS SCRIPT / FETCH NETWORK ERROR)
+  // KOMPRESI BASE64 RINGAN (INSTAN & TANPA NETWORK ERROR)
   function compressAndUploadImage(fileInput) {
     return new Promise((resolve, reject) => {
       if (!fileInput.files || !fileInput.files[0]) {
@@ -843,12 +852,19 @@
 
     issueLine.innerHTML = '<option value="">-- Pilih Line --</option>';
     filterLine.innerHTML = '<option value="">-- Semua Line --</option>';
-    if (filterMasterLine) filterMasterLine.innerHTML = '<option value="">-- Semua Line --</option>';
+    
+    if (filterMasterLine) {
+      const selectedLineMaster = filterMasterLine.value;
+      filterMasterLine.innerHTML = '<option value="">-- Semua Line (All) --</option>';
+      lines.forEach(l => {
+        filterMasterLine.innerHTML += `<option value="${l}">${l}</option>`;
+      });
+      filterMasterLine.value = selectedLineMaster;
+    }
     
     lines.forEach(l => {
       issueLine.innerHTML += `<option value="${l}">${l}</option>`;
       filterLine.innerHTML += `<option value="${l}">${l}</option>`;
-      if (filterMasterLine) filterMasterLine.innerHTML += `<option value="${l}">${l}</option>`;
     });
 
     updateMesinDropdownIssue();
