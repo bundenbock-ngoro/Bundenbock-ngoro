@@ -357,8 +357,13 @@
                 <select id="issueMesin" class="form-select form-select-sm" required></select>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-bold mb-1" style="font-size:0.8rem;">Tugaskan ke Teknisi <span class="text-danger">*</span></label>
-                <select id="issueTeknisi" class="form-select form-select-sm" required></select>
+                <label class="form-label fw-bold mb-1" style="font-size:0.8rem;">
+                  Tugaskan ke Teknisi <span class="text-danger">*</span> 
+                  <small class="text-muted font-normal">(Bisa pilih >1, tahan Ctrl / Cmd)</small>
+                </label>
+                <!-- Diberi atribut multiple dan ukuran height 120px agar mudah memilih banyak nama -->
+                <select id="issueTeknisi" class="form-select form-select-sm" multiple required style="height: 120px;"></select>
+                <small class="text-info" style="font-size: 0.7rem;">*Setiap teknisi yang dipilih akan menerima 1 Nomor WO sendiri-sendiri.</small>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-bold mb-1" style="font-size:0.8rem;">Waktu Temuan Issue <span class="text-danger">*</span></label>
@@ -891,29 +896,54 @@
     });
   }
 
-  function saveNewIssue(e) {
+function saveNewIssue(e) {
     e.preventDefault();
-    const newJob = {
-      id: 'WO-' + Math.floor(1000 + Math.random() * 9000),
-      line: document.getElementById('issueLine').value,
-      mesin: document.getElementById('issueMesin').value,
-      teknisi: document.getElementById('issueTeknisi').value,
-      mulai: document.getElementById('issueMulai').value,
-      issue: document.getElementById('issueDeskripsi').value,
-      status: 'Open',
-      perbaikan: '',
-      part: '',
-      selesai: '',
-      foto: ''
-    };
+    
+    // Ambil semua teknisi yang dipilih (Multi-Select)
+    const teknisiSelect = document.getElementById('issueTeknisi');
+    const selectedTeknisi = Array.from(teknisiSelect.selectedOptions).map(option => option.value);
 
-    showLoading("Menyimpan Issue Baru...");
-    const newRef = window.dbPush(window.dbRefJobs);
-    window.dbSet(newRef, newJob).then(() => {
+    if (selectedTeknisi.length === 0) {
+      alert('Pilih minimal 1 teknisi!');
+      return;
+    }
+
+    const line = document.getElementById('issueLine').value;
+    const mesin = document.getElementById('issueMesin').value;
+    const mulai = document.getElementById('issueMulai').value;
+    const issue = document.getElementById('issueDeskripsi').value;
+
+    showLoading(`Menyimpan ${selectedTeknisi.length} Issue Baru...`);
+
+    // Proses pembuatan WO sendiri-sendiri untuk tiap teknisi
+    const promises = selectedTeknisi.map(namaTeknisi => {
+      const newJob = {
+        id: 'WO-' + Math.floor(1000 + Math.random() * 9000), // Nomor WO Unik Sendiri
+        line: line,
+        mesin: mesin,
+        teknisi: namaTeknisi,
+        mulai: mulai,
+        issue: issue,
+        status: 'Open',
+        perbaikan: '',
+        part: '',
+        selesai: '',
+        foto: ''
+      };
+      
+      const newRef = window.dbPush(window.dbRefJobs);
+      return window.dbSet(newRef, newJob);
+    });
+
+    // Tunggu semua WO selesai terkirim ke Firebase
+    Promise.all(promises).then(() => {
       hideLoading();
       document.getElementById('formCreateIssue').reset();
-      alert('Issue berhasil dikirim secara Realtime!');
+      alert(`Berhasil mengirim ${selectedTeknisi.length} Job Order ke masing-masing teknisi!`);
       switchTab('list-jobs');
+    }).catch(err => {
+      hideLoading();
+      alert("Gagal mengirim job: " + err);
     });
   }
 
