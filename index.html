@@ -573,7 +573,7 @@
               <input type="text" id="modalPart" class="form-control form-control-sm" placeholder="Contoh: Bearing 6204-RS (2 pcs), O-ring Seal (1 pc)" required>
             </div>
             <div class="col-12">
-              <label class="form-label fw-bold mb-1">Upload Foto Hasil / Bukti Perbaikan <small class="text-muted fw-normal">(1 foto max)</small></label>
+              <label class="form-label fw-bold mb-1">Upload Foto Hasil / Bukti Perbaikan <span class="text-danger">*</span></label>
               <input type="file" id="modalFoto" class="form-control form-control-sm" accept="image/*">
               <div id="modalFotoPreview" class="mt-1"></div>
             </div>
@@ -1388,7 +1388,7 @@ function saveNewIssue(e) {
     modalInstance.show();
   }
 
-  async function saveUpdatePerbaikan(e) {
+ async function saveUpdatePerbaikan(e) {
     e.preventDefault();
     const key = document.getElementById('modalJobId').value;
     const jobObj = window.dataJobs.find(j => j._key === key);
@@ -1396,6 +1396,12 @@ function saveNewIssue(e) {
 
     const fotoInput = document.getElementById('modalFoto');
     let fotoUrl = jobObj.foto || '';
+
+    // VALIDASI WAJIB UPLOAD FOTO
+    if (!fileInputHasFile(fotoInput) && !fotoUrl) {
+      alert('WAJIB mengunggah / melampirkan Foto Bukti Perbaikan!');
+      return;
+    }
 
     if (fotoInput.files && fileInputHasFile(fotoInput)) {
       const uploadedUrl = await compressAndUploadImage(fotoInput);
